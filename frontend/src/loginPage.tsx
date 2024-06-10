@@ -3,6 +3,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { signIn, signUp } from './authService.ts';
 import './App.css';
 
@@ -12,6 +13,8 @@ const LoginPage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
+  const [token, setToken] = useState<string | null>(null);
+
 
   const handleSignIn = async (e: { preventDefault: () => void; }) => {
     e.preventDefault();
@@ -21,8 +24,7 @@ const LoginPage = () => {
       if (session && typeof session.AccessToken !== 'undefined') {
         sessionStorage.setItem('accessToken', session.AccessToken);
         if (sessionStorage.getItem('accessToken')) {
-          navigate('/', { state: { email } });
-          // window.location.href = '/home';
+          setToken(session.AccessToken);
         } else {
           console.error('Session token was not set properly.');
         }
@@ -33,6 +35,12 @@ const LoginPage = () => {
       alert(`Sign in failed: ${error}`);
     }
   };
+  
+  useEffect(() => {
+    if (token) {
+      navigate('/', { state: { email } });
+    }
+  }, [token]);
 
   const handleSignUp = async (e: { preventDefault: () => void; }) => {
     e.preventDefault();

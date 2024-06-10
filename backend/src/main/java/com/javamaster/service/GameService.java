@@ -2,18 +2,12 @@ package com.javamaster.service;
 
 
 import com.javamaster.model.*;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
-import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
-import software.amazon.awssdk.regions.Region;
 import com.javamaster.exception.InvalidGameException;
 import com.javamaster.exception.InvalidParamException;
 import com.javamaster.exception.NotFoundException;
 import com.javamaster.storage.GameStorage;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
 
 import java.util.*;
 
@@ -22,14 +16,6 @@ import static com.javamaster.model.GameStatus.*;
 @Service
 @AllArgsConstructor
 public class GameService {
-
-
-    private DynamoDbClient getClient() {
-        Region region = Region.US_EAST_1;
-        return DynamoDbClient.builder()
-                .region(region)
-                .build();
-    }
 
     public Game createGame(Player player) {
         Game game = new Game();
@@ -91,70 +77,10 @@ public class GameService {
             game.setWinner(TicToe.O);
         }
 
-        if (xWinner || oWinner) {
-            DynamoDbEnhancedClient enhancedClient = DynamoDbEnhancedClient.builder()
-                    .dynamoDbClient(getClient())
-                    .build();
-            if (xWinner)
-                putRecord(enhancedClient, game, game.getPlayer1().getLogin());
-            else
-                putRecord(enhancedClient, game, game.getPlayer2().getLogin());
-        }
-
-
-
         game.setCurrentTurn(Objects.equals(game.getCurrentTurn(), "O") ? "X" : "O");
 
         GameStorage.getInstance().setGame(game);
         return game;
-    }
-
-    public void putRecord(DynamoDbEnhancedClient enhancedClient, Game item, String winner) {
-        try{
-            DynamoDbTable<FinishedGame> gamesTable = enhancedClient.table("games", TableSchema.fromBean(FinishedGame.class));
-            FinishedGame record = new FinishedGame();
-            record.setGameId(item.getGameId());
-            record.setPlayer1(item.getPlayer1().getLogin());
-            record.setPlayer2(item.getPlayer2().getLogin());
-            record.setWinner(winner);
-            gamesTable.putItem(record);
-
-        }  catch (DynamoDbException e) {
-            System.err.println(e.getMessage());
-            System.exit(1);
-        }
-
-    }
-
-    public List<FinishedGame> getAllGames() {
-        DynamoDbEnhancedClient enhancedClient = DynamoDbEnhancedClient.builder()
-                .dynamoDbClient(getClient())
-                .build();
-
-        try{
-            DynamoDbTable<FinishedGame> table = enhancedClient.table("games", TableSchema.fromBean(FinishedGame.class));
-            Iterator<FinishedGame> results = table.scan().items().iterator();
-            FinishedGame gameItem ;
-            ArrayList<FinishedGame> itemList = new ArrayList<>();
-
-            while (results.hasNext()) {
-                gameItem = new FinishedGame();
-                FinishedGame game = results.next();
-                gameItem.setGameId(game.getGameId());
-                gameItem.setPlayer1(game.getPlayer1());
-                gameItem.setPlayer2(game.getPlayer2());
-                gameItem.setWinner(game.getWinner());
-
-                // Push the workItem to the list.
-                itemList.add(gameItem);
-            }
-            return itemList;
-
-        } catch (DynamoDbException e) {
-            System.err.println(e.getMessage());
-            System.exit(1);
-        }
-        return null;
     }
 
     private Boolean checkWinner(int[][] board, TicToe ticToe) {

@@ -130,83 +130,118 @@ resource "aws_security_group" "my_security_group" {
   }
 }
 
-
-
 resource "aws_instance" "my_instance" {
   ami                         = "ami-080e1f13689e07408"
   instance_type               = "t2.small"
   key_name                    = "vockey"
   subnet_id                   = aws_subnet.my_subnet.id
   vpc_security_group_ids      = [aws_security_group.my_security_group.id]
-  associate_public_ip_address = "true"
+  associate_public_ip_address = true
   user_data                   = <<-EOF
-		#!/bin/bash
-		
-		cd home/ubuntu
-		sudo apt-get update -y
-		sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-    	sudo snap install docker
-        
-		sudo mkdir -p /usr/local/lib/docker/cli-plugins
-		sudo curl -sL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m) -o /usr/local/lib/docker/cli-plugins/docker-compose
+              #!/bin/bash
+              LOGFILE=/var/log/user-data.log
+              exec > >(tee -a $${LOGFILE} | logger -t user-data -s 2>/dev/console) 2>&1
+              
+              echo "Starting user data script..."
 
-		sudo chown root:root /usr/local/lib/docker/cli-plugins/docker-compose
-		sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+              set -euo pipefail
 
-		sudo apt-get install -y default-jdk
+              function error_exit {
+                echo "Error on line $${1}"
+                exit 1
+              }
 
-		sudo apt-get update -y
-		sudo apt-get install -y maven
+              trap 'error_exit $${LINENO}' ERR
 
-		git clone -b master https://github.com/pwr-cloudprogramming/a10-wscode37.git
+              echo "Changing directory to /home/ubuntu"
+              cd /home/ubuntu
 
-		cd a10-wscode37/backend
-		mvn package
-		cd ../..
-		echo "Changing ip in file"
-		# Retrieve IP address using metadata script
-		API_URL="http://169.254.169.254/latest/api"
-		TOKEN=$(curl -X PUT "$API_URL/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 600")
-		TOKEN_HEADER="X-aws-ec2-metadata-token: $TOKEN"
-		METADATA_URL="http://169.254.169.254/latest/meta-data"
-		IP_V4=$(curl -H "$TOKEN_HEADER" -s $METADATA_URL/public-ipv4)
+              echo "Updating package list"
+              sudo apt-get update -y
 
-		# Replace IP address and URL in JavaScript file
-		JS_FILE="a10-wscode37/frontend/src/play.js"  # Update with the path to your JavaScript file
+              echo "Installing prerequisites"
+              sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
 
-		# Replace all occurrences of "localhost" with the IP address
-		sed -i "s@localhost@$IP_V4@g" "$JS_FILE"
-		echo "IP address replaced in $JS_FILE"
-		
-		#Replace in config.js
-		
-		REGION="${data.aws_region.current.name}"
-    	USERPOOLID="${aws_cognito_user_pool.main.id}"
-    	CLIENTID="${aws_cognito_user_pool_client.main.id}"
+              echo "Adding Docker’s official GPG key"
+              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
-	  	# Ścieżka do pliku config.json
-		CONFIG_FILE="a10-wscode37/frontend/src/config.json"
+              echo "Setting up Docker stable repository"
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
+              echo "Updating package list again"
+              sudo apt-get update -y
 
-	  	# Użyj jq do aktualizacji wartości w pliku config.json
-		sed -i "s@\"region\": \"[^\"]*\"@\"region\": \"$REGION\"@g" "$CONFIG_FILE"
-		sed -i "s@\"userPoolId\": \"[^\"]*\"@\"userPoolId\": \"$USERPOOLID\"@g" "$CONFIG_FILE"
-		sed -i "s@\"clientId\": \"[^\"]*\"@\"clientId\": \"$CLIENTID\"@g" "$CONFIG_FILE"
+              echo "Installing Docker"
+              sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 
-		cd a10-wscode37/frontend
+              echo "Creating Docker CLI plugins directory"
+              sudo mkdir -p /usr/local/lib/docker/cli-plugins
 
-		sudo docker build -t frontend:v1 -t frontend:latest .
-		cd ../backend
+              echo "Downloading Docker Compose"
+              sudo curl -sL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m) -o /usr/local/lib/docker/cli-plugins/docker-compose
 
-		sudo docker build -t backend:v1 -t backend:latest .
-		cd ..
-		sudo docker compose up -d
+              echo "Setting permissions for Docker Compose"
+              sudo chown root:root /usr/local/lib/docker/cli-plugins/docker-compose
+              sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
+              echo "Installing JDK"
+              sudo apt-get install -y default-jdk
 
-		EOF
+              echo "Updating package list again"
+              sudo apt-get update -y
 
+              echo "Installing Maven"
+              sudo apt-get install -y maven
 
-  user_data_replace_on_change = true
+              echo "Cloning Git repository"
+              git clone -b main https://github.com/pwr-cloudprogramming/a10-wscode37.git
+
+              echo "Building Maven project"
+              cd a10-wscode37/backend
+              mvn package
+              cd ../..
+
+              echo "Changing IP in file"
+              # Retrieve IP address using metadata script
+              API_URL="http://169.254.169.254/latest/api"
+              TOKEN=$(curl -X PUT "$${API_URL}/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 600")
+              TOKEN_HEADER="X-aws-ec2-metadata-token: $${TOKEN}"
+              METADATA_URL="http://169.254.169.254/latest/meta-data"
+              IP_V4=$(curl -H "$${TOKEN_HEADER}" -s $${METADATA_URL}/public-ipv4)
+
+              # Replace IP address and URL in JavaScript file
+              JS_FILE="a10-wscode37/frontend/src/play.js"  # Update with the path to your JavaScript file
+
+              echo "Replacing localhost with IP address in $${JS_FILE}"
+              sed -i "s@localhost@$${IP_V4}@g" "$${JS_FILE}"
+              echo "IP address replaced in $${JS_FILE}"
+
+              echo "Updating config.json"
+              REGION="${data.aws_region.current.name}"
+              USERPOOLID="${aws_cognito_user_pool.main.id}"
+              CLIENTID="${aws_cognito_user_pool_client.main.id}"
+
+              # Path to the config.json file
+              CONFIG_FILE="a10-wscode37/frontend/src/config.json"
+
+              # Use sed to update values in config.json
+              sed -i "s@\"region\": \"[^\"]*\"@\"region\": \"$${REGION}\"@g" "$${CONFIG_FILE}"
+              sed -i "s@\"userPoolId\": \"[^\"]*\"@\"userPoolId\": \"$${USERPOOLID}\"@g" "$${CONFIG_FILE}"
+              sed -i "s@\"clientId\": \"[^\"]*\"@\"clientId\": \"$${CLIENTID}\"@g" "$${CONFIG_FILE}"
+
+              echo "Building Docker images"
+              cd a10-wscode37/frontend
+              sudo docker build -t frontend:v1 -t frontend:latest .
+              cd ../backend
+              sudo docker build -t backend:v1 -t backend:latest .
+              cd ..
+
+              echo "Starting Docker Compose"
+              sudo docker compose up -d
+
+              echo "User data script completed"
+              EOF
+
   tags = {
     Name = "Tic-tac-toe-Webserver3"
   }
