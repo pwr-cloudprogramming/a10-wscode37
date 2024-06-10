@@ -157,41 +157,41 @@ resource "aws_instance" "my_instance" {
               cd /home/ubuntu
 
               echo "Updating package list"
-              sudo apt-get update -y
+              apt-get update -y
 
               echo "Installing prerequisites"
-              sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+              apt-get install -y apt-transport-https ca-certificates curl software-properties-common
 
               echo "Adding Docker’s official GPG key"
-              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
               echo "Setting up Docker stable repository"
-              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 
               echo "Updating package list again"
-              sudo apt-get update -y
+              apt-get update -y
 
               echo "Installing Docker"
-              sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+              apt-get install -y docker-ce docker-ce-cli containerd.io
 
               echo "Creating Docker CLI plugins directory"
-              sudo mkdir -p /usr/local/lib/docker/cli-plugins
+              mkdir -p /usr/local/lib/docker/cli-plugins
 
               echo "Downloading Docker Compose"
-              sudo curl -sL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m) -o /usr/local/lib/docker/cli-plugins/docker-compose
+              curl -sL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m) -o /usr/local/lib/docker/cli-plugins/docker-compose
 
               echo "Setting permissions for Docker Compose"
-              sudo chown root:root /usr/local/lib/docker/cli-plugins/docker-compose
-              sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+              chown root:root /usr/local/lib/docker/cli-plugins/docker-compose
+              chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
               echo "Installing JDK"
-              sudo apt-get install -y default-jdk
+              apt-get install -y default-jdk
 
               echo "Updating package list again"
-              sudo apt-get update -y
+              apt-get update -y
 
               echo "Installing Maven"
-              sudo apt-get install -y maven
+              apt-get install -y maven
 
               echo "Cloning Git repository"
               git clone -b main https://github.com/pwr-cloudprogramming/a10-wscode37.git
@@ -231,13 +231,13 @@ resource "aws_instance" "my_instance" {
 
               echo "Building Docker images"
               cd a10-wscode37/frontend
-              sudo docker build -t frontend:v1 -t frontend:latest .
+              docker build -t frontend:v1 -t frontend:latest .
               cd ../backend
-              sudo docker build -t backend:v1 -t backend:latest .
+              docker build -t backend:v1 -t backend:latest .
               cd ..
 
               echo "Starting Docker Compose"
-              sudo docker compose up -d
+              docker compose up -d
 
               echo "User data script completed"
               EOF
