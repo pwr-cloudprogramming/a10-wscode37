@@ -16,7 +16,6 @@ resource "aws_cognito_user_pool" "main" {
   name                     = "example-user-pool"
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
-  #   mfa_configuration   = "OPTIONAL"
 
   password_policy {
     minimum_length                   = 8
@@ -139,69 +138,27 @@ resource "aws_instance" "my_instance" {
   associate_public_ip_address = true
   user_data                   = <<-EOF
               #!/bin/bash
-              LOGFILE=/var/log/user-data.log
-              exec > >(tee -a $${LOGFILE} | logger -t user-data -s 2>/dev/console) 2>&1
-              
-              echo "Starting user data script..."
 
-              set -euo pipefail
-
-              function error_exit {
-                echo "Error on line $${1}"
-                exit 1
-              }
-
-              trap 'error_exit $${LINENO}' ERR
-
-              echo "Changing directory to /home/ubuntu"
               cd /home/ubuntu
-
-              echo "Updating package list"
               apt-get update -y
-
-              echo "Installing prerequisites"
               apt-get install -y apt-transport-https ca-certificates curl software-properties-common
-
-              echo "Adding Docker’s official GPG key"
               curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
-              echo "Setting up Docker stable repository"
               echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-              echo "Updating package list again"
               apt-get update -y
-
-              echo "Installing Docker"
               apt-get install -y docker-ce docker-ce-cli containerd.io
-
-              echo "Creating Docker CLI plugins directory"
               mkdir -p /usr/local/lib/docker/cli-plugins
-
-              echo "Downloading Docker Compose"
               curl -sL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m) -o /usr/local/lib/docker/cli-plugins/docker-compose
-
-              echo "Setting permissions for Docker Compose"
               chown root:root /usr/local/lib/docker/cli-plugins/docker-compose
               chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-
-              echo "Installing JDK"
               apt-get install -y default-jdk
-
-              echo "Updating package list again"
               apt-get update -y
-
-              echo "Installing Maven"
               apt-get install -y maven
 
-              echo "Cloning Git repository"
               git clone -b main https://github.com/pwr-cloudprogramming/a10-wscode37.git
-
-              echo "Building Maven project"
               cd a10-wscode37/backend
               mvn package
               cd ../..
 
-              echo "Changing IP in file"
               # Retrieve IP address using metadata script
               API_URL="http://169.254.169.254/latest/api"
               TOKEN=$(curl -X PUT "$${API_URL}/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 600")
@@ -215,8 +172,6 @@ resource "aws_instance" "my_instance" {
               echo "Replacing localhost with IP address in $${JS_FILE}"
               sed -i "s@localhost@$${IP_V4}@g" "$${JS_FILE}"
               echo "IP address replaced in $${JS_FILE}"
-
-              echo "Updating config.json"
               REGION="${data.aws_region.current.name}"
               USERPOOLID="${aws_cognito_user_pool.main.id}"
               CLIENTID="${aws_cognito_user_pool_client.main.id}"
@@ -235,11 +190,8 @@ resource "aws_instance" "my_instance" {
               cd ../backend
               docker build -t backend:v1 -t backend:latest .
               cd ..
-
-              echo "Starting Docker Compose"
               docker compose up -d
 
-              echo "User data script completed"
               EOF
 
   tags = {
